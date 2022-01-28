@@ -1,5 +1,5 @@
 [workspace]
 
 members = [
-    "threadrr-pool",
+    "async-threadrr-pool",
 ]
