@@ -1,3 +1,7 @@
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::{mpsc, Arc, Mutex};
+
 trait Task {}
 
 struct Task<O> {
@@ -19,10 +23,8 @@ impl<O> Task<O> {
     }
 }
 
-trait WaskWake {}
-
-struct TaskWaker {}
+struct TaskInfo {}
 
 trait Join {}
 
-struct JoinHandle {}
+struct JoinHandle<O> {}
