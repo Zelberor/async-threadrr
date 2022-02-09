@@ -2,76 +2,125 @@ mod join;
 
 use crate::utils::mpmc::Sender;
 pub use join::Join;
+use join::{JoinHandle, Payload};
+use std::cell::RefCell;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
-use std::task::Wake;
+use std::task::{Context, Wake, Waker};
 
 pub trait Task {
     fn poll<S>(self: &Arc<Self>, sender: &S)
     where
-        S: Sender<T = Arc<dyn Task>>,
+        S: Sender<T = Box<dyn Task>>,
         Self: Sized;
 
     fn info(&self) -> &TaskInfo;
 }
 
+trait WakeableTask: Task
+where
+    Self: Sized + Send,
+{
+    fn wake(self: Box<Self>, waker: Arc<TaskWaker<Self>>);
+}
+
 struct GenericTask<O, F, S>
 where
-    F: Future<Output = O> + Send + 'static,
-    S: Sender<T = Arc<dyn Task>>,
+    O: 'static + Send,
+    F: Future<Output = O> + 'static + Send,
+    S: Sender<T = Box<dyn Task>> + 'static + Send,
 {
-    future: Mutex<Pin<Box<F>>>,
+    future: Pin<Box<F>>,
     sender: S,
     info: TaskInfo,
+    payload: Arc<Mutex<Payload<O>>>,
+    waker: RefCell<Option<Arc<TaskWaker<Self>>>>,
 }
 
 impl<O, F, S> GenericTask<O, F, S>
 where
-    F: Future<Output = O> + Send + 'static,
-    S: Sender<T = Arc<dyn Task>>,
+    O: 'static + Send,
+    F: Future<Output = O> + 'static + Send,
+    S: Sender<T = Box<dyn Task>> + 'static + Send,
 {
-    fn spawn<NO, NF, NS>(future: NF, sender: &NS, info: TaskInfo) -> Arc<impl Join<Output = NO>>
-    where
-        NO: 'static,
-        NF: Future<Output = NO> + Send + 'static,
-        NS: Sender<T = Arc<dyn Task>> + 'static,
-    {
-        let task = Arc::new(GenericTask {
-            future: Mutex::new(Box::pin(future)),
+    fn spawn(future: F, sender: &S, info: TaskInfo) -> impl Join<Output = O> {
+        let join = JoinHandle::new();
+		let waker = Arc::new()
+
+        let task = Box::new(GenericTask {
+            future: Box::pin(future),
             sender: sender.clone(),
             info,
+            payload: join.payload().clone(),
+			waker = Cell::new()
         });
 
-        //TODO: Proper error handling
-        let _ = sender.send(task);
+        task.schedule();
 
-        //TODO: Return JoinHandle
-        todo!()
+        join
+    }
+
+    fn schedule(self: Box<Self>) {
+        //TODO: Proper error handling
+        self.sender.clone().send(self).unwrap();
     }
 }
 
 impl<O, F, S> Task for GenericTask<O, F, S>
 where
-    F: Future<Output = O> + Send + 'static,
-    S: Sender<T = Arc<dyn Task>>,
+    O: 'static + Send,
+    F: Future<Output = O> + 'static + Send,
+    S: Sender<T = Box<dyn Task>> + 'static + Send,
 {
     fn poll<SP>(self: &Arc<Self>, _: &SP) {
         todo!()
     }
 
     fn info(&self) -> &TaskInfo {
-        todo!()
+        &self.info
     }
 }
 
-impl<O, F, S> Wake for GenericTask<O, F, S>
+impl<O, F, S> WakeableTask for GenericTask<O, F, S>
 where
-    F: Future<Output = O> + Send + 'static,
-    S: Sender<T = Arc<dyn Task>>,
+    O: 'static + Send,
+    F: Future<Output = O> + 'static + Send,
+    S: Sender<T = Box<dyn Task>> + 'static + Send,
+{
+    fn wake(self: Box<Self>, waker: Arc<TaskWaker<Self>>) {
+        self.waker.replace(Some(waker));
+    }
+}
+
+struct TaskWaker<T>
+where
+    T: WakeableTask + Send,
+	Self: Sync + Send
+{
+    task: Mutex<Option<Box<T>>>,
+}
+
+impl<T> TaskWaker<T>
+where
+T: WakeableTask + Send, {
+	fn new() -> TaskWaker<T> {
+		TaskWaker {
+			task: Mutex::new(None)
+		}
+	}
+
+	fn poll_and_wake(task: Box<T>) {
+
+	}
+}
+
+impl<T> Wake for TaskWaker<T>
+where
+    T: WakeableTask + Send,
 {
     fn wake(self: Arc<Self>) {
-        todo!()
+        self.task.unwrap().wake(self)
     }
 }
 
@@ -80,14 +129,14 @@ pub struct TaskInfo {
     pub blocking_behaviour: BlockingBehaviour,
 }
 
-enum Priority {
+pub enum Priority {
     INFINITE,
     HIGH,
     MEDIUM,
     LOW,
 }
 
-enum BlockingBehaviour {
+pub enum BlockingBehaviour {
     LITTLE,
     SOME,
     MUCH,

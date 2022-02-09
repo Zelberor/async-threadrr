@@ -13,7 +13,7 @@ pub struct JoinHandle<O> {
 }
 
 impl<O> JoinHandle<O> {
-    fn new() -> JoinHandle<O> {
+    pub fn new() -> JoinHandle<O> {
         let condvar = Arc::new(Condvar::new());
         let payload = Payload::new(condvar.clone());
         JoinHandle {
@@ -22,8 +22,8 @@ impl<O> JoinHandle<O> {
         }
     }
 
-    fn payload(&self) -> Arc<Payload<O>> {
-        self.payload().clone()
+    pub fn payload(&self) -> &Arc<Mutex<Payload<O>>> {
+        &self.payload
     }
 }
 
@@ -31,9 +31,9 @@ impl<O> Join for JoinHandle<O> {
     fn join(self) -> Self::Output {
         let mut payload = self.payload.lock().unwrap();
         while payload.result.is_none() {
-            let payload = self.condvar.wait(payload).unwrap();
+            payload = self.condvar.wait(payload).unwrap();
         }
-        payload.result.unwrap()
+        payload.result.take().unwrap()
         // TODO: Error handling / panic messages
     }
 }
@@ -43,7 +43,7 @@ impl<O> Future for JoinHandle<O> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.payload.try_lock() {
-            Ok(payload) => match payload.result {
+            Ok(mut payload) => match payload.result.take() {
                 Some(result) => Poll::Ready(result),
                 None => {
                     payload.waker = Some(cx.waker().clone());
@@ -53,7 +53,7 @@ impl<O> Future for JoinHandle<O> {
             Err(err) => match err {
                 TryLockError::Poisoned(err) => panic!("{}", err),
                 TryLockError::WouldBlock => {
-                    cx.waker().wake();
+                    cx.waker().wake_by_ref();
                     Poll::Pending
                 } // Apparently the task is currently writing the result, so wake this future and try again (busy loop)
             },
@@ -61,14 +61,14 @@ impl<O> Future for JoinHandle<O> {
     }
 }
 
-struct Payload<O> {
+pub struct Payload<O> {
     result: Option<O>,
     waker: Option<Waker>,
     notifier: Arc<Condvar>,
 }
 
 impl<O> Payload<O> {
-    fn finished(self: &Arc<Self>, result: O) {
+    pub fn finished(mut self, result: O) {
         self.result = Some(result);
         if let Some(waker) = self.waker {
             waker.wake();
