@@ -3,57 +3,45 @@ mod join;
 use crate::utils::mpmc::Sender;
 pub use join::Join;
 use join::{JoinHandle, Payload};
-use std::cell::RefCell;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
-use std::task::{Context, Wake, Waker};
+use std::task::{Context, Poll, Wake, Waker};
 
-pub trait Task {
-    fn poll<S>(self: &Arc<Self>, sender: &S)
-    where
-        S: Sender<T = Box<dyn Task>>,
-        Self: Sized;
+pub trait Task: Send + Sync {
+    fn poll(self: Arc<Self>);
 
     fn info(&self) -> &TaskInfo;
 }
 
-trait WakeableTask: Task
-where
-    Self: Sized + Send,
-{
-    fn wake(self: Box<Self>, waker: Arc<TaskWaker<Self>>);
-}
-
-struct GenericTask<O, F, S>
+pub struct GenericTask<O, F, S>
 where
     O: 'static + Send,
     F: Future<Output = O> + 'static + Send,
-    S: Sender<T = Box<dyn Task>> + 'static + Send,
+    S: Sender<T = Arc<dyn Task>> + 'static,
+    Self: Sync,
 {
-    future: Pin<Box<F>>,
+    future: Mutex<Option<Pin<Box<F>>>>,
     sender: S,
     info: TaskInfo,
     payload: Arc<Mutex<Payload<O>>>,
-    waker: RefCell<Option<Arc<TaskWaker<Self>>>>,
 }
 
 impl<O, F, S> GenericTask<O, F, S>
 where
     O: 'static + Send,
     F: Future<Output = O> + 'static + Send,
-    S: Sender<T = Box<dyn Task>> + 'static + Send,
+    S: Sender<T = Arc<dyn Task>> + 'static,
+    Self: Sync,
 {
-    fn spawn(future: F, sender: &S, info: TaskInfo) -> impl Join<Output = O> {
+    pub fn spawn(future: F, sender: &S, info: TaskInfo) -> impl Join<Output = O> {
         let join = JoinHandle::new();
-		let waker = Arc::new()
 
-        let task = Box::new(GenericTask {
-            future: Box::pin(future),
+        let task = Arc::new(GenericTask {
+            future: Mutex::new(Some(Box::pin(future))),
             sender: sender.clone(),
             info,
             payload: join.payload().clone(),
-			waker = Cell::new()
         });
 
         task.schedule();
@@ -61,7 +49,7 @@ where
         join
     }
 
-    fn schedule(self: Box<Self>) {
+    fn schedule(self: Arc<Self>) {
         //TODO: Proper error handling
         self.sender.clone().send(self).unwrap();
     }
@@ -71,10 +59,18 @@ impl<O, F, S> Task for GenericTask<O, F, S>
 where
     O: 'static + Send,
     F: Future<Output = O> + 'static + Send,
-    S: Sender<T = Box<dyn Task>> + 'static + Send,
+    S: Sender<T = Arc<dyn Task>> + 'static,
+    Self: Sync,
 {
-    fn poll<SP>(self: &Arc<Self>, _: &SP) {
-        todo!()
+    fn poll(self: Arc<Self>) {
+        let waker = Waker::from(self.clone());
+        let mut context = Context::from_waker(&waker);
+        let mut future_mutex = self.future.lock().unwrap();
+        let future = future_mutex.as_mut().unwrap();
+        if let Poll::Ready(result) = future.as_mut().poll(&mut context) {
+            let mut payload = self.payload.lock().unwrap();
+            payload.finish(result);
+        }
     }
 
     fn info(&self) -> &TaskInfo {
@@ -82,51 +78,30 @@ where
     }
 }
 
-impl<O, F, S> WakeableTask for GenericTask<O, F, S>
+impl<O, F, S> Wake for GenericTask<O, F, S>
 where
     O: 'static + Send,
     F: Future<Output = O> + 'static + Send,
-    S: Sender<T = Box<dyn Task>> + 'static + Send,
-{
-    fn wake(self: Box<Self>, waker: Arc<TaskWaker<Self>>) {
-        self.waker.replace(Some(waker));
-    }
-}
-
-struct TaskWaker<T>
-where
-    T: WakeableTask + Send,
-	Self: Sync + Send
-{
-    task: Mutex<Option<Box<T>>>,
-}
-
-impl<T> TaskWaker<T>
-where
-T: WakeableTask + Send, {
-	fn new() -> TaskWaker<T> {
-		TaskWaker {
-			task: Mutex::new(None)
-		}
-	}
-
-	fn poll_and_wake(task: Box<T>) {
-
-	}
-}
-
-impl<T> Wake for TaskWaker<T>
-where
-    T: WakeableTask + Send,
+    S: Sender<T = Arc<dyn Task>> + 'static,
+    Self: Sync,
 {
     fn wake(self: Arc<Self>) {
-        self.task.unwrap().wake(self)
+        self.schedule();
     }
 }
 
 pub struct TaskInfo {
-    pub priority: Priority,
-    pub blocking_behaviour: BlockingBehaviour,
+    priority: Priority,
+    blocking_behaviour: BlockingBehaviour,
+}
+
+impl TaskInfo {
+    pub fn default() -> TaskInfo {
+        TaskInfo {
+            priority: Priority::MEDIUM,
+            blocking_behaviour: BlockingBehaviour::SOME,
+        }
+    }
 }
 
 pub enum Priority {

@@ -1,7 +1,7 @@
 pub mod mpmc {
     use flume;
     use std::fmt::Debug;
-    pub trait Sender: Clone {
+    pub trait Sender: Clone + Send + Sync {
         type T;
         fn send(&self, msg: Self::T) -> Result<(), SendError<Self::T>>;
     }
@@ -14,7 +14,7 @@ pub mod mpmc {
         }
     }
 
-    impl<T> Sender for flume::Sender<T> {
+    impl<T: Send> Sender for flume::Sender<T> {
         type T = T;
 
         fn send(&self, msg: Self::T) -> Result<(), SendError<Self::T>> {
