@@ -51,7 +51,7 @@ where
 
     fn schedule(self: Arc<Self>) {
         //TODO: Proper error handling
-        self.sender.clone().send(self).unwrap();
+        self.sender.send(self.clone()).unwrap();
     }
 }
 

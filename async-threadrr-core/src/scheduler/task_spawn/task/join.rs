@@ -3,7 +3,7 @@ use std::pin::Pin;
 use std::sync::{Arc, Condvar, Mutex, TryLockError};
 use std::task::{Context, Poll, Waker};
 
-pub trait Join: Future {
+pub trait Join: Future + Unpin {
     fn join(&self) -> Self::Output;
 }
 

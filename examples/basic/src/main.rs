@@ -1,5 +1,4 @@
 use async_threadrr_core::scheduler::{Run, TaskSpawn};
-use core::num;
 use std::thread;
 
 async fn lel(num: usize) -> usize {
@@ -7,10 +6,24 @@ async fn lel(num: usize) -> usize {
     num + 1
 }
 
-const TASKS: usize = 10000000;
+/*async fn fib(n: u64) -> u64 {
+    match n {
+        1 => 1,
+        2 => 1,
+        _ => {
+            let spawner = async_threadrr_core::spawner();
+            //let test = fib(n - 1);
+            //let n_minus_1 = spawner.spawn(test, None);
+            //let n_minus_2 = spawner.spawn(fib(n - 2), None);
+            fib(n - 1).await + fib(n - 2).await
+        }
+    }
+}*/
+
+const TASKS: usize = 1000000;
 
 fn main() {
-    for _ in 0..8 {
+    for _ in 0..16 {
         thread::spawn(|| {
             let runner = async_threadrr_core::runner();
             runner.run();
