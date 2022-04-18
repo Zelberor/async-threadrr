@@ -3,7 +3,7 @@ use std::pin::Pin;
 use std::sync::{Arc, Condvar, Mutex, TryLockError};
 use std::task::{Context, Poll, Waker};
 
-pub trait Join: Future + Unpin {
+pub trait Join: Future + Unpin + Send {
     fn join(&self) -> Self::Output;
 }
 
@@ -27,7 +27,10 @@ impl<O> JoinHandle<O> {
     }
 }
 
-impl<O> Join for JoinHandle<O> {
+impl<O> Join for JoinHandle<O>
+where
+    O: Send,
+{
     fn join(&self) -> Self::Output {
         let mut payload = self.payload.lock().unwrap();
         while payload.result.is_none() {
