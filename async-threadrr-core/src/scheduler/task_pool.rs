@@ -1,8 +1,15 @@
+mod runner;
+mod task;
+
 use std::sync::Arc;
 
-use flume::{Receiver, Sender};
+use runner::Runner;
 
-use super::task_spawn::Task;
+use flume::{Receiver, Sender};
+use std::future::Future;
+
+use task::GenericTask;
+pub use task::{Join, Task};
 
 pub struct TaskPool
 where
@@ -18,11 +25,21 @@ impl TaskPool {
         Self { sender, receiver }
     }
 
-    pub fn sender(&self) -> &Sender<Arc<dyn Task>> {
-        &self.sender
+    pub fn spawn<F, O>(&self, future: F) -> impl Join<Output = O>
+    where
+        O: 'static + Send,
+        F: Future<Output = O> + Send + 'static,
+    {
+        GenericTask::spawn(future, &self.sender)
     }
 
-    pub fn receiver(&self) -> &Receiver<Arc<dyn Task>> {
-        &self.receiver
+    pub fn run(&self) -> ! {
+        let runner = Runner::new(&self.receiver);
+        runner.run()
+    }
+
+    pub fn run_once(&self) {
+        // TODO: implementation
+        todo!()
     }
 }

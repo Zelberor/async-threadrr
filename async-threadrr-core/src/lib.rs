@@ -3,12 +3,12 @@ mod utils;
 
 use std::sync::Once;
 
-use scheduler::{Run, SimpleScheduler, TaskSpawn};
+use scheduler::SimpleScheduler;
 
 static mut GLOBAL_SCHEDULER: Option<SimpleScheduler> = None;
 static INIT: Once = Once::new();
 
-pub fn init() {
+fn init() {
     unsafe {
         INIT.call_once(|| {
             GLOBAL_SCHEDULER = Some(SimpleScheduler::new());
@@ -16,16 +16,7 @@ pub fn init() {
     }
 }
 
-pub fn is_initialized() -> bool {
-    INIT.is_completed()
-}
-
-pub fn spawner() -> &'static impl TaskSpawn {
+pub fn scheduler() -> &'static SimpleScheduler {
     init();
-    unsafe { GLOBAL_SCHEDULER.as_ref().unwrap().spawner() }
-}
-
-pub fn runner() -> impl Run {
-    init();
-    unsafe { GLOBAL_SCHEDULER.as_ref().unwrap().runner() }
+    unsafe { GLOBAL_SCHEDULER.as_ref().unwrap() }
 }
