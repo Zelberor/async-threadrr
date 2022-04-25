@@ -7,7 +7,7 @@
 // reference with flume(with runner pools): 10825ms
 // reference with flume(with runner pools + cache optim): 7830ms
 
-use async_threadrr_core::scheduler::Join;
+use async_threadrr::Join;
 use std::{thread, time};
 
 async fn inc(num: usize) -> usize {
@@ -17,11 +17,11 @@ async fn inc(num: usize) -> usize {
 async fn lel(num: usize) -> usize {
     let mut number = inc(num).await;
 
-    let shed = async_threadrr_core::scheduler();
+    let shed = async_threadrr::no_blocking();
     let mut joins = Vec::new();
     joins.reserve(INT_TASKS);
     for i in 0..INT_TASKS {
-        joins.push(shed.spawn(inc(i), None));
+        joins.push(shed.spawn(inc(i)));
     }
     while let Some(item) = joins.pop() {
         number += item.await;
@@ -33,13 +33,15 @@ const TASKS: usize = 1000;
 const INT_TASKS: usize = 10000;
 
 fn main() {
-    for _ in 0..16 {
+    const RUNNERS: usize = 16;
+    async_threadrr::init_no_blocking(RUNNERS);
+    for _ in 0..RUNNERS {
         thread::spawn(|| {
-            async_threadrr_core::scheduler().run();
+            async_threadrr::no_blocking().run();
         });
     }
 
-    let shed = async_threadrr_core::scheduler();
+    let shed = async_threadrr::no_blocking();
     let mut joins = Vec::new();
     joins.reserve(TASKS);
     let mut numbers = Vec::new();
@@ -47,7 +49,7 @@ fn main() {
 
     let start = time::SystemTime::now();
     for i in 0..TASKS {
-        joins.push(shed.spawn(lel(i), None));
+        joins.push(shed.spawn(lel(i)));
     }
     while let Some(item) = joins.pop() {
         numbers.push(item.join());

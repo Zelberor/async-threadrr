@@ -3,7 +3,14 @@
 version = 3
 
 [[package]]
-name = "async-threadrr-core"
+name = "async-threadrr"
+version = "0.1.0"
+dependencies = [
+ "async-threadrr-pool",
+]
+
+[[package]]
+name = "async-threadrr-pool"
 version = "0.1.0"
 dependencies = [
  "flume",
@@ -13,7 +20,7 @@ dependencies = [
 name = "basic"
 version = "0.1.0"
 dependencies = [
- "async-threadrr-core",
+ "async-threadrr",
 ]
 
 [[package]]

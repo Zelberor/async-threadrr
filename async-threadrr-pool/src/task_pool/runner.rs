@@ -4,19 +4,24 @@ use super::Task;
 use flume::{Receiver, RecvError, Sender, TryRecvError};
 
 pub struct Runner {
-    // TODO: Receive from other runners
     pool_receiver: Receiver<Arc<dyn Task>>,
+    other_receivers: Vec<Receiver<Arc<dyn Task>>>,
     receiver: Receiver<Arc<dyn Task>>,
     sender: Sender<Arc<dyn Task>>,
 }
 
 impl Runner {
-    pub fn new(pool_receiver: &Receiver<Arc<dyn Task>>) -> Runner {
-        let (sender, receiver) = flume::unbounded();
+    pub fn new(
+        self_sender: Sender<Arc<dyn Task>>,
+        self_receiver: Receiver<Arc<dyn Task>>,
+        pool_receiver: Receiver<Arc<dyn Task>>,
+        other_receivers: Vec<Receiver<Arc<dyn Task>>>,
+    ) -> Runner {
         Runner {
-            pool_receiver: pool_receiver.clone(),
-            receiver,
-            sender,
+            pool_receiver,
+            receiver: self_receiver,
+            sender: self_sender,
+            other_receivers,
         }
     }
 }
@@ -44,21 +49,23 @@ impl Runner {
 
     pub fn run(&self) -> ! {
         loop {
-            // Preferably receive from the own receiver
+            // Preferably try to receive from the own receiver
             if let Ok(_) = self.try_receive_and_run(&self.receiver) {
                 continue;
             }
-            // Then receive from the pool
+            // Then try to receive from the pool
             if let Ok(_) = self.try_receive_and_run(&self.pool_receiver) {
                 continue;
             }
 
             // Now receive from everybody including other runners
-            // TODO: Get tasks from other runners
-            flume::select::Selector::new()
+            let mut selector = flume::select::Selector::new()
                 .recv(&self.receiver, |r| self.run_received(r))
-                .recv(&self.pool_receiver, |r| self.run_received(r))
-                .wait();
+                .recv(&self.pool_receiver, |r| self.run_received(r));
+            for receiver in self.other_receivers.iter() {
+                selector = selector.recv(receiver, |r| self.run_received(r));
+            }
+            selector.wait();
         }
     }
 }

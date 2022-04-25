@@ -1,5 +1,5 @@
 [package]
-name = "async-threadrr-core"
+name = "async-threadrr-pool"
 version = "0.1.0"
 edition = "2021"
 
