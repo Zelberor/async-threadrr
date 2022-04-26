@@ -4,7 +4,7 @@ use std::sync::{Arc, Condvar, Mutex, TryLockError};
 use std::task::{Context, Poll, Waker};
 
 pub trait Join: Future + Unpin + Send {
-    fn join(&self) -> Self::Output;
+    fn join(self) -> Self::Output;
 }
 
 pub struct JoinHandle<O> {
@@ -31,7 +31,7 @@ impl<O> Join for JoinHandle<O>
 where
     O: Send,
 {
-    fn join(&self) -> Self::Output {
+    fn join(self) -> Self::Output {
         let mut payload = self.payload.lock().unwrap();
         while payload.result.is_none() {
             payload = self.condvar.wait(payload).unwrap();
@@ -68,8 +68,6 @@ pub struct Payload<O> {
     result: Option<O>,
     waker: Option<Waker>,
     notifier: Arc<Condvar>,
-    got_result: bool,
-    // TODO: Panic when joined / polled again
 }
 
 impl<O> Payload<O> {
@@ -86,7 +84,6 @@ impl<O> Payload<O> {
             result: None,
             waker: None,
             notifier,
-            got_result: false,
         }
     }
 }
