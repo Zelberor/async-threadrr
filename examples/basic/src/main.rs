@@ -7,7 +7,7 @@
 // reference with flume(with runner pools): 10825ms
 // reference with flume(with runner pools + cache optim): 7830ms
 
-use async_threadrr::Join;
+use async_threadrr::{Blocking, Join};
 use std::{thread, time};
 
 async fn inc(num: usize) -> usize {
@@ -17,7 +17,7 @@ async fn inc(num: usize) -> usize {
 async fn lel(num: usize) -> usize {
     let mut number = inc(num).await;
 
-    let shed = async_threadrr::no_blocking();
+    let shed = async_threadrr::pool(Blocking::NONE);
     let mut joins = Vec::new();
     joins.reserve(INT_TASKS);
     for i in 0..INT_TASKS {
@@ -34,14 +34,14 @@ const INT_TASKS: usize = 10000;
 
 fn main() {
     const RUNNERS: usize = 16;
-    async_threadrr::init_no_blocking(RUNNERS);
+    async_threadrr::init(Blocking::NONE, RUNNERS);
     for _ in 0..RUNNERS {
         thread::spawn(|| {
-            async_threadrr::no_blocking().run();
+            async_threadrr::pool(Blocking::NONE).run();
         });
     }
 
-    let shed = async_threadrr::no_blocking();
+    let shed = async_threadrr::pool(Blocking::NONE);
     let mut joins = Vec::new();
     joins.reserve(TASKS);
     let mut numbers = Vec::new();

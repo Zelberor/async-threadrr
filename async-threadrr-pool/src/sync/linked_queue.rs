@@ -26,6 +26,6 @@ struct LinkedList<E, T>
 where
     E: ListElement<T = T>,
 {
-    first: Arc<E>,
-    last: Arc<E>,
+    first: Mutex<Option<Arc<E>>>,
+    last: Mutex<Option<Arc<E>>>,
 }

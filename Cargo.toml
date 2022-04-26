@@ -2,6 +2,8 @@
 
 members = [
 	"async-threadrr",
-    "async-threadrr-pool",
+	"async-threadrr-pool",
+	"async-threadrr-wasm",
 	"examples/basic",
+	"examples/wasm",
 ]
