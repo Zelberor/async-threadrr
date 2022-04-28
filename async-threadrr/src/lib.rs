@@ -1,74 +1,46 @@
 pub use async_threadrr_pool::Join;
 use async_threadrr_pool::TaskPool;
 use std::sync::Once;
+use strum::EnumCount;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
+#[derive(EnumCount, Clone, Copy)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum Blocking {
-    NONE,
-    SOME,
-    MUCH,
+    MUCH = 0,
+    SOME = 1,
+    NONE = 2,
 }
 
-static mut TASKPOOL_NO_BLOCKING: Option<TaskPool> = None;
-static INIT_NO_BLOCKING: Once = Once::new();
-static mut TASKPOOL_SOME_BLOCKING: Option<TaskPool> = None;
-static INIT_SOME_BLOCKING: Once = Once::new();
-static mut TASKPOOL_MUCH_BLOCKING: Option<TaskPool> = None;
-static INIT_MUCH_BLOCKING: Once = Once::new();
+const _POOLS_INIT: Option<TaskPool> = None;
+static mut POOLS: [Option<TaskPool>; Blocking::COUNT] = [_POOLS_INIT; Blocking::COUNT];
+const _INITS_INIT: Once = Once::new();
+static INITS: [Once; Blocking::COUNT] = [_INITS_INIT; Blocking::COUNT];
 
 fn get_initialized() -> &'static TaskPool {
-    if INIT_MUCH_BLOCKING.is_completed() {
-        unsafe { TASKPOOL_MUCH_BLOCKING.as_ref().unwrap() }
-    } else if INIT_SOME_BLOCKING.is_completed() {
-        unsafe { TASKPOOL_SOME_BLOCKING.as_ref().unwrap() }
-    } else if INIT_NO_BLOCKING.is_completed() {
-        unsafe { TASKPOOL_NO_BLOCKING.as_ref().unwrap() }
-    } else {
-        panic!("No task pool initialized")
+    for i in 0..Blocking::COUNT {
+        if INITS[i].is_completed() {
+            unsafe {
+                return POOLS[i].as_ref().unwrap();
+            }
+        }
     }
+    panic!("No task pool initialized")
 }
 
 pub fn pool(blocking: Blocking) -> &'static TaskPool {
-    match blocking {
-        Blocking::NONE => {
-            if INIT_NO_BLOCKING.is_completed() {
-                unsafe { TASKPOOL_NO_BLOCKING.as_ref().unwrap() }
-            } else {
-                get_initialized()
-            }
-        }
-        Blocking::SOME => {
-            if INIT_SOME_BLOCKING.is_completed() {
-                unsafe { TASKPOOL_SOME_BLOCKING.as_ref().unwrap() }
-            } else {
-                get_initialized()
-            }
-        }
-        Blocking::MUCH => {
-            if INIT_MUCH_BLOCKING.is_completed() {
-                unsafe { TASKPOOL_MUCH_BLOCKING.as_ref().unwrap() }
-            } else {
-                get_initialized()
-            }
-        }
+    if INITS[blocking as usize].is_completed() {
+        unsafe { POOLS[blocking as usize].as_ref().unwrap() }
+    } else {
+        get_initialized()
     }
 }
 
 pub fn init(blocking: Blocking, max_runners: usize) {
-    match blocking {
-        Blocking::NONE => INIT_NO_BLOCKING.call_once(|| {
-            unsafe {
-                TASKPOOL_NO_BLOCKING = Some(TaskPool::new(max_runners));
-            };
-        }),
-        Blocking::SOME => INIT_SOME_BLOCKING.call_once(|| {
-            unsafe {
-                TASKPOOL_SOME_BLOCKING = Some(TaskPool::new(max_runners));
-            };
-        }),
-        Blocking::MUCH => INIT_MUCH_BLOCKING.call_once(|| {
-            unsafe {
-                TASKPOOL_MUCH_BLOCKING = Some(TaskPool::new(max_runners));
-            };
-        }),
-    }
+    INITS[blocking as usize].call_once(|| {
+        unsafe {
+            POOLS[blocking as usize] = Some(TaskPool::new(max_runners));
+        };
+    });
 }

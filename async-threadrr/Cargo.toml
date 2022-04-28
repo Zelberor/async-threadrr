@@ -6,4 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-threadrr-pool = {path = "../async-threadrr-pool"}
+async-threadrr-pool = { path = "../async-threadrr-pool" }
+strum = "0.24.0"
+wasm-bindgen = { version = "0.2.80", optional = true }
+
+[features]
+wasm = ["dep:wasm-bindgen"]

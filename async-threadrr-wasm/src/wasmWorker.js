@@ -7,5 +7,5 @@ onmessage = async (e) => {
 	const pkg = await import('../../..');
 	await pkg.default(e.data.module, e.data.memory);
 	postMessage(true);
-	pkg._runNoneBlocking(); p
+	pkg._run(e.data.blocking);
 }

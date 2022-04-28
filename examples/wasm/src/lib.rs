@@ -1,14 +1,13 @@
 mod utils;
 
-use async_threadrr::{Blocking, Join};
+use async_threadrr::Blocking;
 use async_threadrr_wasm;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::spawn_local;
 
 #[wasm_bindgen(start)]
 pub async fn start() {
     utils::set_panic_hook();
-    async_threadrr_wasm::init_runners(5, 5, 5).await;
+    async_threadrr_wasm::init_runners(Blocking::NONE, async_threadrr_wasm::num_threads()).await;
 }
 
 #[wasm_bindgen(module = "/src/utils.js")]

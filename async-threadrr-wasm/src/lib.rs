@@ -3,24 +3,16 @@ compile_error!("The compiler features `atomics` and `bulk-memory` need to be ena
 
 use async_threadrr::Blocking;
 use std::sync::atomic::{AtomicBool, Ordering};
+use strum::EnumCount;
 use wasm_bindgen::{prelude::*, JsValue};
 
-#[wasm_bindgen(js_name = _runNoneBlocking)]
-pub fn run_none_blocking() {
-    async_threadrr::pool(Blocking::NONE).run()
+#[wasm_bindgen(js_name = _run)]
+pub fn run(blocking: Blocking) {
+    async_threadrr::pool(blocking).run()
 }
 
-#[wasm_bindgen(js_name = _runSomeBlocking)]
-pub fn run_some_blocking() {
-    async_threadrr::pool(Blocking::SOME).run()
-}
-
-#[wasm_bindgen(js_name = _runMuchBlocking)]
-pub fn run_much_blocking() {
-    async_threadrr::pool(Blocking::MUCH).run()
-}
-
-static INIT: AtomicBool = AtomicBool::new(false);
+const _INIT_INIT: AtomicBool = AtomicBool::new(false);
+static INIT: [AtomicBool; Blocking::COUNT] = [_INIT_INIT; Blocking::COUNT];
 
 #[wasm_bindgen(module = "/src/initWorkers.js")]
 extern "C" {
@@ -28,37 +20,32 @@ extern "C" {
     async fn init_workers(
         module: JsValue,
         memory: JsValue,
-        no_blocking_amount: usize,
-        some_blocking_amount: usize,
-        much_blocking_amount: usize,
+        blocking: Blocking,
+        amount: usize,
     ) -> Result<(), JsValue>;
 }
 
 #[wasm_bindgen(module = "/src/wasmWorker.js")]
 extern "C" {
-	#[wasm_bindgen(js_name = _dummyFunction)]
-	fn dummy_function();
+    #[wasm_bindgen(js_name = _dummyFunction)]
+    fn _dummy_function();
 }
 
-pub async fn init_runners(
-    no_blocking_amount: usize,
-    some_blocking_amount: usize,
-    much_blocking_amount: usize,
-) -> Result<(), JsValue> {
-    if INIT.fetch_or(true, Ordering::SeqCst) {
-        return Err(JsError::new("Runners can only be initialized once.").into());
+#[wasm_bindgen(module = "/src/utils.js")]
+extern "C" {
+	#[wasm_bindgen(js_name = numThreads)]
+	pub fn num_threads() -> usize;
+}
+
+pub async fn init_runners(blocking: Blocking, amount: usize) {
+    if INIT[blocking as usize].fetch_or(true, Ordering::SeqCst) {
+        return; // Runners can only be initialized once // TODO: Return error here
     };
-    if no_blocking_amount > 0 {
-        async_threadrr::init(Blocking::NONE, no_blocking_amount);
+    if amount <= 0 {
+        return; // TODO: Return error here
     }
+    async_threadrr::init(blocking, amount);
     let module = wasm_bindgen::module();
     let memory = wasm_bindgen::memory();
-    init_workers(
-        module,
-        memory,
-        no_blocking_amount,
-        some_blocking_amount,
-        much_blocking_amount,
-    )
-    .await
+    init_workers(module, memory, blocking, amount).await;
 }
