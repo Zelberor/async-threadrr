@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 async-threadrr = { path = "../async-threadrr" }
+js-sys = "0.3.57"
+wasm-bindgen = "0.2.80"
+wasm-bindgen-futures = "0.4.30"

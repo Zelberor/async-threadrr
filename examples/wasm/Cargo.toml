@@ -1,11 +1,11 @@
 [package]
-name = "wasm"
+name = "threadrr-wasm-example"
 version = "0.1.0"
 authors = ["Peter Viechter <zelberor.games@gmail.com>"]
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [features]
 default = ["console_error_panic_hook"]
@@ -19,9 +19,9 @@ wasm-bindgen = "0.2.80"
 # code size when deploying.
 console_error_panic_hook = { version = "0.1.7", optional = true }
 
+async-threadrr-wasm = { path = "../../async-threadrr-wasm" }
+async-threadrr = { path = "../../async-threadrr" }
+wasm-bindgen-futures = "0.4.30"
+
 [dev-dependencies]
 wasm-bindgen-test = "0.3.30"
-
-[profile.release]
-# Tell `rustc` to optimize for small code size.
-opt-level = "s"

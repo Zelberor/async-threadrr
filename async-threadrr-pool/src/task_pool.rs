@@ -13,7 +13,7 @@ pub use task::{Join, Task};
 
 pub struct TaskPool
 where
-    Self: Send + Sync,
+    Self: Send + Sync + Sized,
 {
     receiver: Receiver<Arc<dyn Task>>,
     sender: Sender<Arc<dyn Task>>,
