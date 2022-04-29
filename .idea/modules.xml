@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/../CameLION/.idea/CameLION.iml" filepath="$PROJECT_DIR$/../CameLION/.idea/CameLION.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/async-threadrr.iml" filepath="$PROJECT_DIR$/.idea/async-threadrr.iml" />
     </modules>
   </component>

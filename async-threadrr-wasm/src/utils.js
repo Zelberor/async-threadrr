@@ -1,4 +1,4 @@
 
 export function numThreads() {
-	return navigator.hardwareConcurrency;
+	return navigator.hardwareConcurrency ?? 4;
 }
