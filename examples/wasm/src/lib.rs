@@ -15,6 +15,23 @@ extern "C" {
     fn log(msg: &str);
 }
 
+#[wasm_bindgen]
+extern "C" {
+    fn alert(msg: &str);
+}
+
+#[wasm_bindgen]
+pub async fn alert_me_thread(msg: String) {
+    let shed = async_threadrr::pool(Blocking::NONE);
+    let num = shed.spawn(inc(41)).await;
+    alert_me(format!("{} + {}", msg, num)).await;
+}
+
+#[wasm_bindgen]
+pub async fn alert_me(msg: String) {
+    alert(&msg);
+}
+
 async fn inc(num: usize) -> usize {
     num + 1
 }
