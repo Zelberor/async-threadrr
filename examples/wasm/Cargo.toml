@@ -25,3 +25,30 @@ wasm-bindgen-futures = "0.4.30"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.30"
+
+# Look in .cargo/config.toml for other profile settings
+
+# https://rustwasm.github.io/wasm-pack/book/cargo-toml-configuration.html
+[package.metadata.wasm-pack.profile.dev]
+wasm-opt = false
+
+[package.metadata.wasm-pack.profile.dev.wasm-bindgen]
+# Should we enable wasm-bindgen's debug assertions in its generated JS glue?
+debug-js-glue = true
+# Should wasm-bindgen demangle the symbols in the "name" custom section?
+demangle-name-section = true
+# Should we emit the DWARF debug info custom sections?
+dwarf-debug-info = true
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = [
+	"-Os",
+	"--enable-threads",
+	"--enable-mutable-globals",
+	"--enable-bulk-memory",
+]
+
+[package.metadata.wasm-pack.profile.release.wasm-bindgen]
+debug-js-glue = false
+demangle-name-section = false
+dwarf-debug-info = false
